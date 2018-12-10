@@ -49,15 +49,19 @@ def list_flavor(path):
 def analyzer_is_updated(args, flavor, analyzer_name):
     tag = 'latest' if args.latest else 'devel'
     last_commit = last_build_commit(args, flavor['name'].lower(), tag)
-    print('Analyzer {} has been built from commit {}'.format(flavor['name'].lower(), last_commit))
     if last_commit is None:
+        print('No previous Docker image found for analyzer {}, build it'.format(flavor['name'].lower()))
         return True
     repo = git.Repo(args.base_path)
     head = repo.head.commit
     for change in head.diff(other=last_commit):
         if change.a_path.startswith(join(args.analyzer_path, analyzer_name)) or \
                 change.b_path.startswith(join(args.analyzer_path, analyzer_name)):
+            print('Previous Docker image of analyzer {} has been built from commit {}, changed detected, rebuild it'
+                  .format(flavor['name'].lower(), last_commit))
             return True
+    print('Previous Docker image of analyzer {} has been built from commit {}, no change detected'
+          .format(flavor['name'].lower(), last_commit))
     return False
 
 
@@ -107,12 +111,6 @@ def docker_repository_exists(args, repo):
         'https://cloud.docker.com/v2/repositories/{}/{}/'.format(args.namespace, repo),
         auth=(args.user, args.password))
     return resp.status_code == 200
-    # try:
-    #    dxf = DXF(host=registry, repo='{}/{}'.format(namespace, repo), auth=auth)
-    #    dxf.list_aliases()
-    #    return True
-    # except:
-    #    return False
 
 
 def docker_create_repository(args, flavor):
