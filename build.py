@@ -52,7 +52,7 @@ def analyzer_is_updated(args, flavor, analyzer_name):
     print('Analyzer {} has been built from commit {}'.format(flavor['name'].lower(), last_commit))
     if last_commit is None:
         return True
-    repo = git.Repo('.')
+    repo = git.Repo(args.base_path)
     head = repo.head.commit
     for change in head.diff(other=last_commit):
         if change.a_path.startswith(join(args.analyzer_path, analyzer_name)) or \
@@ -61,8 +61,8 @@ def analyzer_is_updated(args, flavor, analyzer_name):
     return False
 
 
-def git_commit_sha(path='.'):
-    return git.Repo(path).head.commit.hexsha
+def git_commit_sha(args):
+    return git.Repo(args.base_path).head.commit.hexsha
 
 
 def build_docker(args, analyzer_name, flavor):
@@ -72,12 +72,13 @@ def build_docker(args, analyzer_name, flavor):
             dockerfile=dockerfile,
             pull=True,
             labels={
+                'schema-version': '1.0',
                 'org.label-schema.build-date': datetime.datetime.now().isoformat('T') + 'Z',
                 'org.label-schema.name': analyzer_name,
                 'org.label-schema.description': flavor['description'].replace("'", "''")[:100],
                 'org.label-schema.url': 'https://thehive-project.org',
                 'org.label-schema.vcs-url': 'https://github.com/TheHive-Project/Cortex-Analyzers',
-                'org.label-schema.vcs-ref': git_commit_sha(),
+                'org.label-schema.vcs-ref': git_commit_sha(args),
                 'org.label-schema.vendor': 'TheHive Project',
                 'org.label-schema.version': flavor['version']
             },
@@ -177,6 +178,7 @@ def main():
     parser.add_argument('-l', '--latest',    action='store_true',        default=latest,       help='Add release tags')
     parser.add_argument('-a', '--analyzer',  action='append',            dest='analyzers',     help='Name of the analyzer to build')
     parser.add_argument('--path',            default=analyzer_path,      dest='analyzer_path', help='Path of the analyzers')
+    parser.add_argument('--base-path',       default='.',                                      help='Path of the git repository')
     args = parser.parse_args()
     args.docker_client = docker.from_env()
     args.docker_client.login(args.user, args.password)
